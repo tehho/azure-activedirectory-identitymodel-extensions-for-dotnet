@@ -40,6 +40,30 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
     /// </summary>
     public class OpenIdConnectConfigurationRetriever : IConfigurationRetriever<OpenIdConnectConfiguration>
     {
+        /// <summary>
+        /// Constructor that instantiates an OpenIdConnectConfigurationRetriever instance.
+        /// </summary>
+        public OpenIdConnectConfigurationRetriever()
+        {
+        }
+
+        /// <summary>
+        /// Constructor that instantiates an OpenIdConnectConfigurationRetriever instance.
+        /// </summary>
+        /// <param name="getSigningKeys">The falg indicating where or not to get the signing keys.</param>
+        public OpenIdConnectConfigurationRetriever(bool getSigningKeys)
+        {
+            _getSigningKeys = getSigningKeys;
+        }
+
+        /// <summary>
+        /// Whether or not to get the signing keys via the "jwks_uri" link.
+        /// In SAL, when getting the OpenId configuration based on a particular tenant id, it is possible to run into issue when retrieving the signing keys with the error:
+        /// "regional key discovery endpoint is forbidden"
+        /// For outbound policy the signing keys are not needed and should be skipped.
+        /// Teh default behavior is to retrieve the signing keys, if this is not desired use the constructor to set this falg to false.
+        /// </summary>
+        private readonly bool _getSigningKeys = true;
 
         /// <summary>
         /// Retrieves a populated <see cref="OpenIdConnectConfiguration"/> given an address.
@@ -66,7 +90,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
 
         Task<OpenIdConnectConfiguration> IConfigurationRetriever<OpenIdConnectConfiguration>.GetConfigurationAsync(string address, IDocumentRetriever retriever, CancellationToken cancel)
         {
-            return GetAsync(address, retriever, cancel);
+            return GetAsync(address, retriever, _getSigningKeys, cancel);
         }
 
         /// <summary>
@@ -75,8 +99,21 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
         /// <param name="address">address of the discovery document.</param>
         /// <param name="retriever">the <see cref="IDocumentRetriever"/> to use to read the discovery document</param>
         /// <param name="cancel"><see cref="CancellationToken"/>.</param>
+        /// <returns>A <see cref="OpenIdConnectConfiguration"/> retrieved from the specified address.</returns>
+        public static Task<OpenIdConnectConfiguration> GetAsync(string address, IDocumentRetriever retriever, CancellationToken cancel)
+        {
+            return GetAsync(address, retriever, true, cancel);
+        }
+
+        /// <summary>
+        /// Retrieves a populated <see cref="OpenIdConnectConfiguration"/> given an address and an <see cref="IDocumentRetriever"/>.
+        /// </summary>
+        /// <param name="address">address of the discovery document.</param>
+        /// <param name="retriever">the <see cref="IDocumentRetriever"/> to use to read the discovery document</param>
+        /// <param name="cancel"><see cref="CancellationToken"/>.</param>
+        /// <param name="getSigningKeys">whether or not to get the signing keys.</param>
         /// <returns>A populated <see cref="OpenIdConnectConfiguration"/> instance.</returns>
-        public static async Task<OpenIdConnectConfiguration> GetAsync(string address, IDocumentRetriever retriever, CancellationToken cancel)
+        private static async Task<OpenIdConnectConfiguration> GetAsync(string address, IDocumentRetriever retriever, bool getSigningKeys, CancellationToken cancel)
         {
             if (string.IsNullOrWhiteSpace(address))
                 throw LogHelper.LogArgumentNullException(nameof(address));
@@ -90,7 +127,7 @@ namespace Microsoft.IdentityModel.Protocols.OpenIdConnect
 
             LogHelper.LogVerbose(LogMessages.IDX21811, doc);
             OpenIdConnectConfiguration openIdConnectConfiguration = JsonConvert.DeserializeObject<OpenIdConnectConfiguration>(doc);
-            if (!string.IsNullOrEmpty(openIdConnectConfiguration.JwksUri))
+            if (getSigningKeys && !string.IsNullOrEmpty(openIdConnectConfiguration.JwksUri))
             {
                 LogHelper.LogVerbose(LogMessages.IDX21812, openIdConnectConfiguration.JwksUri);
                 string keys = await retriever.GetDocumentAsync(openIdConnectConfiguration.JwksUri, cancel).ConfigureAwait(false);
