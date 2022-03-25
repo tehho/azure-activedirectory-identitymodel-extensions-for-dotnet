@@ -270,11 +270,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         public string EncodedSignature { get; internal set; }
 
         /// <summary>
-        /// Gets the original raw data of this instance when it was created.
-        /// </summary>
-        public string EncodedToken { get; private set; }
-
-        /// <summary>
         /// Not implemented.
         /// </summary>
         public override SecurityKey SecurityKey { get; }
