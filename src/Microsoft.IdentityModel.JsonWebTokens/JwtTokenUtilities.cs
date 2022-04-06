@@ -38,6 +38,11 @@ using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using TokenLogMessages = Microsoft.IdentityModel.Tokens.LogMessages;
 
+#if !NET45
+using System.IO;
+using System.Text.Json;
+#endif
+
 namespace Microsoft.IdentityModel.JsonWebTokens
 {
     /// <summary>
@@ -533,6 +538,29 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
             return null;
         }
+
+#if !NET45
+        internal static JsonDocument ParseDocument(byte[] bytes, int length)
+        {
+            using (MemoryStream memoryStream = new MemoryStream(bytes, 0, length))
+            {
+                return JsonDocument.Parse(memoryStream);
+            };
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="rawString"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="length"></param>
+        /// <returns></returns>
+        internal static JsonDocument GetJsonDocumentFromBase64UrlEncodedString(string rawString, int startIndex, int length)
+        {
+            return Base64UrlEncoding.Decode<JsonDocument>(rawString, startIndex, length, ParseDocument);
+        }
+#endif
+
     }
 }
 

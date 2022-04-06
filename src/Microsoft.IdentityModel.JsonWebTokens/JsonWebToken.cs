@@ -27,7 +27,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Logging;
@@ -46,35 +45,38 @@ namespace Microsoft.IdentityModel.JsonWebTokens
     /// <summary>
     /// A <see cref="SecurityToken"/> designed for representing a JSON Web Token (JWT). 
     /// </summary>
-    public class JsonWebToken : SecurityToken, IClaimProvider, IJsonClaimSet, IClaimSet
+    public class JsonWebToken : SecurityToken, IJsonClaimSet
     {
         private char[] _hChars;
+#if NET45
         private char[] _pChars;
         private char[] _sChars;
+#endif
         private ClaimsIdentity _claimsIdentity;
         private bool _wasClaimsIdentitySet;
 
-        private Lazy<string> _act;
-        private Lazy<string> _alg;
-        private Lazy<IEnumerable<string>> _audiences;
-        private Lazy<string> _authenticationTag;
-        private Lazy<string> _ciphertext;
-        private Lazy<string> _cty;
-        private Lazy<string> _enc;
-        private Lazy<string> _encodedHeader;
-        private Lazy<string> _encodedPayload;
-        private Lazy<string> _encodedSignature;
-        private Lazy<string> _encryptedKey;
-        private Lazy<DateTime> _iat;
-        private Lazy<string> _id;
-        private Lazy<string> _iss;
-        private Lazy<string> _kid;
-        private Lazy<string> _sub;
-        private Lazy<string> _typ;
-        private Lazy<DateTime> _validFrom;
-        private Lazy<DateTime> _validTo;
-        private Lazy<string> _x5t;
-        private Lazy<string> _zip;
+        private string _act;
+        private string _alg;
+        private IList<string> _audiences;
+        private string _authenticationTag;
+        private string _ciphertext;
+        private string _cty;
+        private string _enc;
+        private string _encodedHeader;
+        private string _encodedPayload;
+        private string _encodedSignature;
+        private string _encryptedKey;
+        private DateTime? _iat;
+        private string _id;
+        private string _initializationVector;
+        private string _iss;
+        private string _kid;
+        private string _sub;
+        private string _typ;
+        private DateTime? _validFrom;
+        private DateTime? _validTo;
+        private string _x5t;
+        private string _zip;
 
         /// <summary>
         /// Initializes a new instance of <see cref="JsonWebToken"/> from a string in JWS or JWE Compact serialized format.
@@ -93,9 +95,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         public JsonWebToken(string jwtEncodedString)
         {
             if (string.IsNullOrEmpty(jwtEncodedString))
-                throw new ArgumentNullException(nameof(jwtEncodedString));
+                throw LogHelper.LogExceptionMessage(new ArgumentNullException(nameof(jwtEncodedString)));
 
-            Initialize();
             ReadToken(jwtEncodedString);
         }
 
@@ -139,9 +140,12 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             {
                 throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14302, payload), ex));
             }
-
-            Initialize();
         }
+
+        internal string ActualIssuer { get; set; }
+
+        internal ClaimsIdentity ActorClaimsIdentity { get; set; }
+
 
         /// <summary>
         /// Gets the AuthenticationTag from the original raw data of this instance when it was created.
@@ -153,7 +157,20 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If this JWT is not encrypted with an algorithms that uses an Authentication Tag, an empty string will be returned.
         /// </para>
         /// </remarks>
-        public string AuthenticationTag => _authenticationTag.Value;
+        public string AuthenticationTag
+        {
+            get
+            {
+                if (_authenticationTag == null)
+                {
+
+                    _authenticationTag = AuthenticationTagBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(AuthenticationTagBytes);
+                }
+
+                return _authenticationTag;
+
+            }
+        }
 
         /// <summary>
         ///
@@ -174,7 +191,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If this JWT is not encrypted, an empty string will be returned.
         /// </para>
         /// </remarks>
-        public string Ciphertext => _ciphertext.Value;
+        public string Ciphertext
+        {
+            get
+            {
+                if (_ciphertext == null)
+                    _ciphertext = CipherTextBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(CipherTextBytes);
+
+                return _ciphertext;
+            }
+        }
 
         /// <summary>
         ///
@@ -184,10 +210,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             get;
             set;
         }
-
-        internal string ActualIssuer { get; set; }
-
-        internal ClaimsIdentity ActorClaimsIdentity { get; set; }
 
         internal ClaimsIdentity ClaimsIdentity
         {
@@ -244,13 +266,36 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             }
         }
 
+        internal int Dot1 { get; set; }
+
+        internal int Dot2 { get; set; }
+
+        internal int Dot3 { get; set; }
+
+        internal int Dot4 { get; set; }
+
         /// <summary>
         /// Gets the EncodedHeader from the original raw data of this instance when it was created.
         /// </summary>
         /// <remarks>
         /// The original Base64UrlEncoded string of the JWT header.
         /// </remarks>
-        public string EncodedHeader => _encodedHeader.Value;
+        public string EncodedHeader
+        {
+            get
+            {
+                // TODO - need to account for JWE
+                if (_encodedHeader == null)
+                {
+                    if (EncodedToken != null)
+                        _encodedHeader = EncodedToken.Substring(0, Dot1);
+                    else
+                        _encodedHeader = string.Empty;
+                }
+
+                return _encodedHeader;
+            }
+        }
 
         /// <summary>
         /// Gets the Encrypted Content Encryption Key.
@@ -262,7 +307,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string EncryptedKey => _encryptedKey.Value;
+        public string EncryptedKey
+        {
+            get
+            {
+                if (_encryptedKey == null)
+                    _encryptedKey = EncryptedKeyBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(EncryptedKeyBytes);
+
+                return _encryptedKey;
+            }
+        }
 
         internal byte[] EncryptedKeyBytes { get; set; }
 
@@ -270,18 +324,46 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// Gets the EncodedPayload from the original raw data of this instance when it was created.
         /// </summary>
         /// <remarks>
-        /// The original Base64UrlEncoded of the JWT payload.
+        /// The original Base64UrlEncoded of the JWT payload, for JWE this will an empty string.
         /// </remarks>
-        public string EncodedPayload => _encodedPayload.Value;
+        public string EncodedPayload
+        {
+            get
+            {
+                if (_encodedPayload == null)
+                {
+                    if (EncodedToken != null)
+                        _encodedPayload = IsEncrypted ? string.Empty : EncodedToken.Substring(Dot1 + 1, Dot2 - Dot1 - 1);
+                    else
+                        _encodedPayload = string.Empty;
+                }
+
+                return _encodedPayload;
+            }
+        }
 
         /// <summary>
         /// Gets the EncodedSignature from the original raw data of this instance when it was created.
         /// </summary>
         /// <remarks>
         /// The original Base64UrlEncoded of the JWT signature.
-        /// If the JWT was not signed, an empty string is returned.
+        /// If the JWT was not signed or a JWE, an empty string is returned.
         /// </remarks>
-        public string EncodedSignature => _encodedSignature.Value;
+        public string EncodedSignature
+        {
+            get
+            {
+                if (_encodedSignature == null)
+                {
+                    if (EncodedToken != null)
+                        _encodedSignature = IsEncrypted ? string.Empty : EncodedToken.Substring(Dot2 + 1, EncodedToken.Length - Dot2 - 1);
+                    else
+                        _encodedSignature = string.Empty;
+                }
+
+                return _encodedSignature;
+            }
+        }
 
         /// <summary>
         /// Gets the original raw data of this instance when it was created.
@@ -300,31 +382,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
         internal byte[] HeaderAsciiBytes { get; set; }
 
-        private void Initialize()
-        {
-            _act = new Lazy<string>(ActorFactory);
-            _alg = new Lazy<string>(AlgFactory);
-            _audiences = new Lazy<IEnumerable<string>>(AudiencesFactory);
-            _authenticationTag = new Lazy<string>(AuthenticationTagFactory);
-            _ciphertext = new Lazy<string>(CipherTextFactory);
-            _cty = new Lazy<string>(CtyFactory);
-            _enc = new Lazy<string>(EncFactory);
-            _encodedHeader = new Lazy<string>(EncodedHeaderFactory);
-            _encodedPayload = new Lazy<string>(EncodedPayloadFactory);
-            _encodedSignature = new Lazy<string>(EncodedSignatureFactory);
-            _encryptedKey = new Lazy<string>(EncryptedKeyFactory);
-            _iat = new Lazy<DateTime>(IatFactory);
-            _id = new Lazy<string>(IdFactory);
-            _iss = new Lazy<string>(IssuerFactory);
-            _kid = new Lazy<string>(KidFactory);
-            _sub = new Lazy<string>(SubFactory);
-            _typ = new Lazy<string>(TypFactory);
-            _validTo = new Lazy<DateTime>(ValidToFactory);
-            _validFrom = new Lazy<DateTime>(ValidFromFactory);
-            _x5t = new Lazy<string>(X5tFactory);
-            _zip = new Lazy<string>(ZipFactory);
-        }
-
         internal byte[] InitializationVectorBytes { get; set; }
 
         /// <summary>
@@ -337,7 +394,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If not found an empty string is returned.
         /// </para>
         /// </remarks>
-        public string InitializationVector { get; internal set; }
+        public string InitializationVector
+        {
+            get
+            {
+                if (InitializationVectorBytes == null)
+                    _initializationVector = InitializationVectorBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(InitializationVectorBytes);
+
+                return _initializationVector;
+            }
+        }
 
         /// <summary>
         /// Gets the <see cref="JsonWebToken"/> associated with this instance.
@@ -357,7 +423,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         public bool IsEncrypted { get => CipherTextBytes != null; }
 
         /// <summary>
-        /// 
+        /// TODO - do we need to set this or use IsEncrypted model.
         /// </summary>
         public bool IsSigned { get; internal set; }
 
@@ -384,48 +450,72 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </summary>
         internal byte[] MessageBytes{ get; set; }
 
+        internal int NumberOfDots { get; set; }
+
         private void ReadToken(string encodedJson)
         {
-            List<int> dots = new List<int>();
-            int index = 0;
-            while (index < encodedJson.Length && dots.Count <= JwtConstants.MaxJwtSegmentCount + 1)
-            {
-                if (encodedJson[index] == '.')
-                    dots.Add(index);
+            // JWT must have 2 dots
+            Dot1 = encodedJson.IndexOf('.');
+            if (Dot1 == -1)
+                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, encodedJson)));
 
-                index++;
-            }
+            Dot2 = encodedJson.IndexOf('.', Dot1 + 1);
+            if (Dot2 == -1)
+                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, encodedJson)));
 
-            EncodedToken = encodedJson;
-            if (dots.Count == JwtConstants.JwsSegmentCount - 1)
+            Dot3 = encodedJson.IndexOf('.', Dot2 + 1);
+
+            // JWS has two dots
+            if (Dot3 == -1)
             {
-                IsSigned = !(dots[1] + 1 == encodedJson.Length);
-                _hChars = encodedJson.ToCharArray(0, dots[0]);
-                _pChars = encodedJson.ToCharArray(dots[0] + 1, dots[1] - dots[0] - 1);
-                MessageBytes = Encoding.UTF8.GetBytes(encodedJson.ToCharArray(0, dots[1]));
+                IsSigned = !(Dot2 + 1 == encodedJson.Length);
                 try
                 {
-                    _sChars = IsSigned ? encodedJson.ToCharArray(dots[1] + 1, encodedJson.Length - dots[1] - 1) : string.Empty.ToCharArray();
+#if NET45
+                    _sChars = IsSigned ? encodedJson.ToCharArray(Dot2 + 1, encodedJson.Length - Dot2 - 1) : string.Empty.ToCharArray();
                     SignatureBytes = Base64UrlEncoder.UnsafeDecode(_sChars);
+                    _hChars = encodedJson.ToCharArray(0, Dot1);
                     Header = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_hChars));
+#else
+                    Header = new JsonClaimSet(JwtTokenUtilities.GetJsonDocumentFromBase64UrlEncodedString(encodedJson, 0, Dot1));
+#endif
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14102, encodedJson.Substring(0, dots[0]), encodedJson), ex));
+                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14102, encodedJson.Substring(0, Dot1), encodedJson), ex));
                 }
 
                 try
                 {
+#if NET45
+                    MessageBytes = Encoding.UTF8.GetBytes(encodedJson.ToCharArray(0, Dot2));
+                    _pChars = encodedJson.ToCharArray(Dot1 + 1, Dot2 - Dot1 - 1);
                     Payload = new JsonClaimSet(Base64UrlEncoder.UnsafeDecode(_pChars));
+#else
+                    Payload = new JsonClaimSet(JwtTokenUtilities.GetJsonDocumentFromBase64UrlEncodedString(encodedJson, Dot1 + 1, Dot2 - Dot1 - 1));
+#endif
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14101, encodedJson.Substring(dots[0], dots[1] - dots[0]), encodedJson), ex));
+                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14101, encodedJson.Substring(Dot2, Dot2 - Dot1), encodedJson), ex));
                 }
             }
-            else if (dots.Count == JwtConstants.JweSegmentCount - 1)
+            else
             {
-                _hChars = encodedJson.ToCharArray(0, dots[0]);
+                Dot4 = encodedJson.IndexOf('.', Dot3 + 1);
+
+                // JWE needs to have 4 dots
+                if (Dot4 == -1)
+                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, encodedJson)));
+
+                // too many dots...
+                if (encodedJson.IndexOf('.', Dot4 + 1) != -1)
+                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, encodedJson)));
+
+                // right number of dots for JWE
+                _hChars = encodedJson.ToCharArray(0, Dot1);
+
+                // header cannot be empty
                 if (_hChars.Length == 0)
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14307, encodedJson)));
 
@@ -436,15 +526,22 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 }
                 catch (Exception ex)
                 {
-                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14102, encodedJson.Substring(0, dots[0]), encodedJson), ex));
+                    throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14102, encodedJson.Substring(0, Dot1), encodedJson), ex));
                 }
 
                 // dir does not have any key bytes
-                char[] encryptedKeyBytes = encodedJson.ToCharArray(dots[0] + 1, dots[1] - dots[0] - 1);
+                char[] encryptedKeyBytes = encodedJson.ToCharArray(Dot1 + 1, Dot2 - Dot1 - 1);
                 if (encryptedKeyBytes.Length != 0)
+                {
                     EncryptedKeyBytes = Base64UrlEncoder.UnsafeDecode(encryptedKeyBytes);
+                    _encryptedKey = encodedJson.Substring(Dot1 + 1, Dot2 - Dot1 - 1);
+                }
+                else
+                {
+                    _encryptedKey = string.Empty;
+                }
 
-                char[] ivChars = encodedJson.ToCharArray(dots[1] + 1, dots[2] - dots[1] - 1);
+                char[] ivChars = encodedJson.ToCharArray(Dot2 + 1, Dot3 - Dot2 - 1);
                 if (ivChars.Length == 0)
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14308, encodedJson)));
 
@@ -457,7 +554,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14309, encodedJson, encodedJson), ex));
                 }
 
-                char[] authTagChars = encodedJson.ToCharArray(dots[3] + 1, encodedJson.Length - dots[3] - 1);
+                char[] authTagChars = encodedJson.ToCharArray(Dot4 + 1, encodedJson.Length - Dot4 - 1);
                 if (authTagChars.Length == 0)
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14310, encodedJson)));
 
@@ -470,23 +567,21 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14311, encodedJson, encodedJson), ex));
                 }
 
-                char[] cipherTextBytes = encodedJson.ToCharArray(dots[2] + 1, dots[3] - dots[2] - 1);
+                char[] cipherTextBytes = encodedJson.ToCharArray(Dot3 + 1, Dot4 - Dot3 - 1);
                 if (cipherTextBytes.Length == 0)
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14306, encodedJson)));
 
                 try
                 {
-                    CipherTextBytes = Base64UrlEncoder.UnsafeDecode(encodedJson.ToCharArray(dots[2] + 1, dots[3] - dots[2] - 1));
+                    CipherTextBytes = Base64UrlEncoder.UnsafeDecode(encodedJson.ToCharArray(Dot3 + 1, Dot4 - Dot3 - 1));
                 }
                 catch (Exception ex)
                 {
                     throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14312, encodedJson, encodedJson), ex));
                 }
             }
-            else
-            {
-                throw LogHelper.LogExceptionMessage(new ArgumentException(LogHelper.FormatInvariant(LogMessages.IDX14100, encodedJson)));
-            }
+
+            EncodedToken = encodedJson;
         }
 
         /// <summary>
@@ -494,14 +589,25 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// </summary>
         internal byte[] SignatureBytes { get; set; }
 
-        #region Claims
+#region Claims
         /// <summary>
         /// Gets the 'value' of the 'actort' claim the payload.
         /// </summary>
         /// <remarks>
         /// If the 'actort' claim is not found, an empty string is returned.
         /// </remarks>
-        public string Actor => _act.Value;
+        public string Actor
+        {
+            get
+            {
+                if (_act == null)
+                {
+                    _act = (InnerToken == null) ? Payload.GetStringValue(JwtRegisteredClaimNames.Actort) : InnerToken.Payload.GetStringValue(JwtRegisteredClaimNames.Actort);
+                }
+
+                return _act;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'alg' claim from the header.
@@ -514,7 +620,18 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'alg' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Alg => _alg.Value;
+        public string Alg
+        {
+            get
+            {
+                if (_alg == null)
+                {
+                    _alg = Header.GetStringValue(JwtHeaderParameterNames.Alg);
+                }
+
+                return _alg;
+            }
+        }
 
         /// <summary>
         /// Gets the list of 'aud' claims from the payload.
@@ -526,7 +643,47 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'aud' claim is not found, enumeration will be empty.
         /// </para>
         /// </remarks>
-        public IEnumerable<string> Audiences => _audiences.Value;
+        public IEnumerable<string> Audiences
+        {
+            get
+            {
+                if (_audiences == null)
+                {
+                    _audiences = new List<string>();
+#if NET45
+                    if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JToken value))
+                    {
+                        if (value.Type is JTokenType.String)
+                            _audiences = new List<string> { value.ToObject<string>() };
+                        else if (value.Type is JTokenType.Array)
+                            _audiences = value.ToObject<List<string>>();
+                    }
+#else
+                    if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JsonElement audiences))
+                    {
+                        if (audiences.ValueKind == JsonValueKind.String)
+                            _audiences = new List<string> { audiences.GetString() };
+
+                        if (audiences.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (JsonElement jsonElement in audiences.EnumerateArray())
+                                _audiences.Add(jsonElement.ToString());
+                        }
+                    }
+#endif
+                }
+
+                return _audiences;
+            }
+        }
+
+        internal override IEnumerable<Claim> CreateClaims(string issuer)
+        {
+            if (InnerToken != null)
+                return InnerToken.CreateClaims(issuer);
+
+            return Payload.CreateClaims(issuer);
+        }
 
         /// <summary>
         /// Gets a <see cref="IEnumerable{Claim}"/> where each claim in the JWT { name, value } is returned as a <see cref="Claim"/>.
@@ -558,7 +715,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'cty' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Cty => _cty.Value;
+        public string Cty
+        {
+            get
+            {
+                if (_cty == null)
+                    _cty = Header.GetStringValue(JwtHeaderParameterNames.Cty);
+
+                return _cty;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'enc' claim from the header.
@@ -568,7 +734,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// on the plaintext to produce the ciphertext and the Authentication Tag.
         /// see: https://datatracker.ietf.org/doc/html/rfc7516#section-4.1.2
         /// </remarks>
-        public string Enc => _enc.Value;
+        public string Enc
+        {
+            get
+            {
+                if (_enc == null)
+                    _enc = Header.GetStringValue(JwtHeaderParameterNames.Enc);
+
+                return _enc;
+            }
+        }
 
         /// <summary>
         /// Gets a <see cref="Claim"/> representing the { key, 'value' } pair corresponding to the provided <paramref name="key"/>.
@@ -634,7 +809,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'jti' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public override string Id => _id.Value;
+        public override string Id
+        {
+            get
+            {
+                if (_id == null)
+                    _id = Payload.GetStringValue(JwtRegisteredClaimNames.Jti);
+
+                return _id;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'iat' claim converted to a <see cref="DateTime"/> from the payload.
@@ -646,7 +830,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'iat' claim is not found, then <see cref="DateTime.MinValue"/> is returned.
         /// </para>
         /// </remarks>
-        public DateTime IssuedAt => _iat.Value;
+        public DateTime IssuedAt
+        {
+            get
+            {
+                if (_iat == null)
+                    _iat = Payload.GetDateTime(JwtRegisteredClaimNames.Iat);
+
+                return _iat.Value;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'iss' claim from the payload.
@@ -658,7 +851,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'iss' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public override string Issuer => _iss.Value;
+        public override string Issuer
+        {
+            get
+            {
+                if (_iss == null)
+                    _iss = Payload.GetStringValue(JwtRegisteredClaimNames.Iss);
+
+                return _iss;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'kid' claim from the header.
@@ -671,7 +873,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'kid' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Kid => _kid.Value;
+        public string Kid
+        {
+            get
+            {
+                if (_kid == null)
+                    _kid = Header.GetStringValue(JwtHeaderParameterNames.Kid);
+
+                return _kid;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'sub' claim from the payload.
@@ -683,7 +894,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'sub' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Subject => _sub.Value;
+        public string Subject
+        {
+            get
+            {
+                if (_sub == null)
+                    _sub = Payload.GetStringValue(JwtRegisteredClaimNames.Sub);
+
+                return _sub;
+            }
+        }
 
         /// <summary>
         /// Try to get a <see cref="Claim"/> representing the { key, 'value' } pair corresponding to the provided <paramref name="key"/>.
@@ -773,7 +993,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'typ' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Typ => _typ.Value;
+        public string Typ
+        {
+            get
+            {
+                if (_typ == null)
+                    _typ = Header.GetStringValue(JwtHeaderParameterNames.Typ);
+
+                return _typ;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'x5t' claim from the header.
@@ -785,7 +1014,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'x5t' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string X5t => _x5t.Value;
+        public string X5t
+        {
+            get
+            {
+                if (_x5t == null)
+                    _x5t = Header.GetStringValue(JwtHeaderParameterNames.X5t);
+
+                return _x5t;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'nbf' claim converted to a <see cref="DateTime"/> from the payload.
@@ -797,7 +1035,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'nbf' claim is not found, then <see cref="DateTime.MinValue"/> is returned.
         /// </para>
         /// </remarks>
-        public override DateTime ValidFrom => _validFrom.Value;
+        public override DateTime ValidFrom
+        {
+            get
+            {
+                if (_validFrom == null)
+                    _validFrom = Payload.GetDateTime(JwtRegisteredClaimNames.Nbf);
+
+                return _validFrom.Value;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'exp' claim converted to a <see cref="DateTime"/> from the payload.
@@ -809,7 +1056,16 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'exp' claim is not found, then <see cref="DateTime.MinValue"/> is returned.
         /// </para>
         /// </remarks>
-        public override DateTime ValidTo => _validTo.Value;
+        public override DateTime ValidTo
+        {
+            get
+            {
+                if (_validTo == null)
+                    _validTo = Payload.GetDateTime(JwtRegisteredClaimNames.Exp);
+
+                return _validTo.Value;
+            }
+        }
 
         /// <summary>
         /// Gets the 'value' of the 'zip' claim from the header.
@@ -821,138 +1077,17 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         /// If the 'zip' claim is not found, an empty string is returned.
         /// </para>
         /// </remarks>
-        public string Zip => _zip.Value;
-        #endregion
-
-        #region Factories for Lazy
-        private string ActorFactory()
+        public string Zip
         {
-            return (InnerToken == null) ? Payload.GetStringValue(JwtRegisteredClaimNames.Actort) : InnerToken.Payload.GetStringValue(JwtRegisteredClaimNames.Actort);
-        }
-
-        private string AlgFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Alg);
-        }
-
-        private IEnumerable<string> AudiencesFactory()
-        {
-#if NET45
-            if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JToken value))
+            get
             {
-                if (value.Type is JTokenType.String)
-                    return new List<string> { value.ToObject<string>() };
-                else if (value.Type is JTokenType.Array)
-                    return value.ToObject<List<string>>();
+                if (_zip == null)
+                    _zip = Header.GetStringValue(JwtHeaderParameterNames.Zip);
+
+                return _zip;
             }
-#else
-            if (Payload.TryGetValue(JwtRegisteredClaimNames.Aud, out JsonElement audiences))
-            {
-                if (audiences.ValueKind == JsonValueKind.String)
-                    return new List<string> { audiences.GetString() };
-
-                if (audiences.ValueKind == JsonValueKind.Array)
-                {
-                    List<string> retVal = new List<string>();
-                    foreach (JsonElement jsonElement in audiences.EnumerateArray())
-                        retVal.Add(jsonElement.ToString());
-
-                    return retVal;
-                }
-            }
-#endif
-            return Enumerable.Empty<string>();
         }
 
-        private string AuthenticationTagFactory()
-        {
-            return AuthenticationTagBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(AuthenticationTagBytes);
-        }
-
-        private string CipherTextFactory()
-        {
-            return CipherTextBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(CipherTextBytes);
-        }
-
-        private string CtyFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Cty);
-        }
-
-        private string EncFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Enc);
-        }
-
-        private string EncodedHeaderFactory()
-        {
-            return new string(_hChars);
-        }
-
-        private string EncodedPayloadFactory()
-        {
-            return new string(_pChars);
-        }
-
-        private string EncodedSignatureFactory()
-        {
-            return new string(_sChars);
-        }
-
-        private string EncryptedKeyFactory()
-        {
-            return EncryptedKeyBytes == null ? string.Empty : UTF8Encoding.UTF8.GetString(EncryptedKeyBytes);
-        }
-
-        private string IdFactory()
-        {
-            return Payload.GetStringValue(JwtRegisteredClaimNames.Jti);
-        }
-
-        private DateTime IatFactory()
-        {
-            return Payload.GetDateTime(JwtRegisteredClaimNames.Iat);
-        }
-
-        private string IssuerFactory()
-        {
-            return Payload.GetStringValue(JwtRegisteredClaimNames.Iss);
-        }
-
-        private string KidFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Kid);
-        }
-
-        private string SubFactory()
-        {
-            return Payload.GetStringValue(JwtRegisteredClaimNames.Sub);
-        }
-
-        private string TypFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Typ);
-        }
-
-        private string X5tFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.X5t);
-        }
-
-        private DateTime ValidFromFactory()
-        {
-            return Payload.GetDateTime(JwtRegisteredClaimNames.Nbf);
-        }
-
-        private DateTime ValidToFactory()
-        {
-            return Payload.GetDateTime(JwtRegisteredClaimNames.Exp);
-        }
-
-        private string ZipFactory()
-        {
-            return Header.GetStringValue(JwtHeaderParameterNames.Zip);
-        }
-        #endregion
+#endregion
     }
 }

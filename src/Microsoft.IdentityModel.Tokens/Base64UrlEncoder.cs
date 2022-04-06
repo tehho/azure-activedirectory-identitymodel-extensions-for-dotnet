@@ -86,17 +86,33 @@ namespace Microsoft.IdentityModel.Tokens
         {
             _ = inArray ?? throw LogHelper.LogArgumentNullException(nameof(inArray));
 
+            if (offset < 0)
+                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(
+                    LogHelper.FormatInvariant(
+                        LogMessages.IDX10716,
+                        LogHelper.MarkAsNonPII(nameof(offset)),
+                        LogHelper.MarkAsNonPII(offset))));
+
             if (length == 0)
                 return string.Empty;
 
             if (length < 0)
-                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(LogHelper.FormatInvariant(LogMessages.IDX10106, LogHelper.MarkAsNonPII(nameof(length)), LogHelper.MarkAsNonPII(length))));
-
-            if (offset < 0 || inArray.Length < offset)
-                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(LogHelper.FormatInvariant(LogMessages.IDX10106, LogHelper.MarkAsNonPII(nameof(offset)), LogHelper.MarkAsNonPII(offset))));
+                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(
+                    LogHelper.FormatInvariant(
+                        LogMessages.IDX10716,
+                        LogHelper.MarkAsNonPII(nameof(length)),
+                        LogHelper.MarkAsNonPII(length))));
 
             if (inArray.Length < offset + length)
-                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(LogHelper.FormatInvariant(LogMessages.IDX10106, LogHelper.MarkAsNonPII(nameof(length)), LogHelper.MarkAsNonPII(length))));
+                throw LogHelper.LogExceptionMessage(new ArgumentOutOfRangeException(
+                    LogHelper.FormatInvariant(
+                        LogMessages.IDX10717,
+                        LogHelper.MarkAsNonPII(nameof(offset)),
+                        LogHelper.MarkAsNonPII(nameof(length)),
+                        LogHelper.MarkAsNonPII(nameof(inArray)),
+                        LogHelper.MarkAsNonPII(offset),
+                        LogHelper.MarkAsNonPII(length),
+                        LogHelper.MarkAsNonPII(inArray.Length))));
 
             int lengthmod3 = length % 3;
             int limit = offset + (length - lengthmod3);

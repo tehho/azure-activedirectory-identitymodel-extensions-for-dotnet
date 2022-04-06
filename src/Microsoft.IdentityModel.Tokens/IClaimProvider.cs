@@ -15,6 +15,6 @@ namespace Microsoft.IdentityModel.Tokens
         /// <summary>
         /// 
         /// </summary>
-        IEnumerable<Claim> Claims{ get; }
+        IEnumerable<Claim> CreateClaims(string issuer);
     }
 }

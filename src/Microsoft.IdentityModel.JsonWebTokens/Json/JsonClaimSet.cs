@@ -22,10 +22,18 @@ namespace Microsoft.IdentityModel.JsonWebTokens
         private Lazy<IDictionary<string, object>> _claimProperties;
         private IList<Claim> _claims;
         private static Type _typeofDateTime = typeof(DateTime);
+        private JsonDocument _jsonDocument;
 
         internal JsonClaimSet()
         {
             Initialize();
+        }
+
+        internal JsonClaimSet(JsonDocument jsonDocument)
+        {
+            Initialize();
+            RootElement = jsonDocument.RootElement;
+            _jsonDocument = jsonDocument;
         }
 
         internal JsonClaimSet(byte[] jsonBytes)

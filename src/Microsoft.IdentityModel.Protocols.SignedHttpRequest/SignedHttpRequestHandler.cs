@@ -632,8 +632,20 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest
                         if (signatureProvider == null)
                             throw LogHelper.LogExceptionMessage(new InvalidOperationException(LogHelper.FormatInvariant(Tokens.LogMessages.IDX10636, popKey.ToString(), LogHelper.MarkAsNonPII(signedHttpRequest.Alg))));
 
+#if NET45
                         if (signatureProvider.Verify(signedHttpRequest.MessageBytes, signedHttpRequest.SignatureBytes))
-                            return popKey;
+#else
+                        if(EncodingUtils.PerformEncodingDependentOperation<bool, string, int, SignatureProvider>(
+                            signedHttpRequest.EncodedToken,
+                            0,
+                            signedHttpRequest.Dot2,
+                            Encoding.UTF8,
+                            signedHttpRequest.EncodedToken,
+                            signedHttpRequest.Dot2,
+                            signatureProvider,
+                            JsonWebTokenHandler.ValidateSignature))
+#endif
+                        return popKey;
                     }
                     finally
                     {

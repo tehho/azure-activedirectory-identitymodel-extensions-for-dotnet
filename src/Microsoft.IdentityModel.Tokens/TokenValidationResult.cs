@@ -61,7 +61,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="issuer"></param>
         internal TokenValidationResult(SecurityToken securityToken, TokenValidationParameters validationParameters, string issuer)
         {
-            _validationParameters = validationParameters.Clone();
+            _validationParameters = validationParameters;
             Issuer = issuer;
             SecurityToken = securityToken;
             Initialize();
@@ -88,8 +88,8 @@ namespace Microsoft.IdentityModel.Tokens
         {
             get
             {
-                //if (_claimsIdentity == null)
-                //    _claimsIdentity = CreateClaimsIdentity();
+                if (_claimsIdentity == null)
+                    _claimsIdentity = CreateClaimsIdentity();
 
                 return _claimsIdentity;
             }
@@ -99,23 +99,21 @@ namespace Microsoft.IdentityModel.Tokens
             }
         }
 
-        ///// <summary>
-        ///// This call is for JWTs, SamlTokenHandler will set the ClaimsPrincipal.
-        ///// </summary>
-        ///// <returns></returns>
-        //private ClaimsIdentity CreateClaimsIdentity()
-        //{
-        //    ClaimsIdentity claimsIdentity = _validationParameters.CreateClaimsIdentity(SecurityToken, Issuer);
+        /// <summary>
+        /// This call is for JWTs, SamlTokenHandler will set the ClaimsPrincipal.
+        /// </summary>
+        /// <returns></returns>
+        private ClaimsIdentity CreateClaimsIdentity()
+        {
+            if (_validationParameters != null && SecurityToken != null && Issuer != null)
+            {
+                ClaimsIdentity claimsIdentity = _validationParameters.CreateClaimsIdentity(SecurityToken, Issuer);
+                claimsIdentity.AddClaims(SecurityToken.CreateClaims(Issuer));
+                return claimsIdentity;
+            }
 
-        //    if (SecurityToken is not IClaimProvider claimProvider)
-        //        throw LogHelper.LogArgumentNullException(nameof(IClaimProvider));
-
-        //    IEnumerable<Claim> claims = claimProvider.Claims;
-
-        //    claimsIdentity.AddClaims(claims);
-
-        //    return claimsIdentity;
-        //}
+            return null;
+        }
 
         /// <summary>
         /// Gets or sets the <see cref="Exception"/> that occurred during validation.
@@ -135,7 +133,7 @@ namespace Microsoft.IdentityModel.Tokens
 
         private void Initialize()
         {
-            _claims = new Lazy<IDictionary<string, object>>(() => TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity.Claims));
+            _claims = new Lazy<IDictionary<string, object>>(() => TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity?.Claims));
         }
 
         /// <summary>

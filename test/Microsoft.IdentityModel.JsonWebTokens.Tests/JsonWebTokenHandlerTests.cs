@@ -502,6 +502,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
                 var validationResultFromJwtJsonHandler = theoryData.JsonWebTokenHandler.ValidateToken(jweFromJwtHandler, theoryData.ValidationParameters);
                 IdentityComparer.AreEqual(validationResultFromJwtJsonHandler.IsValid, theoryData.IsValid, context);
                 IdentityComparer.AreEqual(claimsPrincipalFromJwtHandler.Identity, validationResultFromJsonHandler.ClaimsIdentity, context);
+                IEnumerable<Claim> jwtHandlerClaims = (validatedTokenFromJwtHandler as JwtSecurityToken).Claims;
+                IEnumerable<Claim> jsonHandlerClaims = (validatedTokenFromJsonHandler as JsonWebToken).Claims;
                 IdentityComparer.AreEqual((validatedTokenFromJwtHandler as JwtSecurityToken).Claims, (validatedTokenFromJsonHandler as JsonWebToken).Claims, context);
 
                 theoryData.ExpectedException.ProcessNoException(context);

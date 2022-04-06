@@ -440,7 +440,8 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             }
         }
 
-        // Test ensures that we only try to populate a JsonWebToken from a string if it is a properly formatted JWT. More specifically, we only want to try and decode
+        // Test ensures that we only try to populate a JsonWebToken from a string if it is a properly formatted JWT.
+        // More specifically, we only want to try and decode
         // a JWT token if it has the correct number of (JWE or JWS) token parts.
         [Theory, MemberData(nameof(ParseTokenTheoryData))]
         public void ParseToken(JwtTheoryData theoryData)

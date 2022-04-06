@@ -346,7 +346,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests
                 if (theoryData.VerifySpecifyingLength)
                     verifyingSignatureProvider.Verify(bytes, signedBytes);
                 else
-                    verifyingSignatureProvider.Verify(bytes, signedBytes, bytes.Length - 1);
+                    verifyingSignatureProvider.Verify(bytes, signedBytes, signedBytes.Length);
 
                 theoryData.ExpectedException.ProcessNoException(context);
             }
