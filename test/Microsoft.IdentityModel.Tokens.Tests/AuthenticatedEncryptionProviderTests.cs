@@ -87,12 +87,27 @@ namespace Microsoft.IdentityModel.Tokens.Tests
     /// </summary>
     public class AuthenticatedEncryptionProviderTests
     {
-#if NET_CORE
+#if NETCOREAPP2_1
         [PlatformSpecific(TestPlatforms.Linux | TestPlatforms.OSX)]
         [Fact]
         public void AesGcmEncryptionOnLinuxAndMac()
         {
             Assert.Throws<PlatformNotSupportedException>(() => new AuthenticatedEncryptionProvider(Default.SymmetricEncryptionKey256, SecurityAlgorithms.Aes256Gcm));
+        }
+#elif NET6_0
+        [Fact]
+        public void AesGcmEncryptionOnNet6()
+        {
+            var context = new CompareContext();
+            try
+            {
+                var provider = new AuthenticatedEncryptionProvider(Default.SymmetricEncryptionKey256, SecurityAlgorithms.Aes256Gcm);
+            }
+            catch (Exception ex)
+            {
+                context.AddDiff($"AuthenticatedEncryptionProvider is not supposed to throw an exception, Exception:{ex.ToString()}");
+            }
+            TestUtilities.AssertFailIfErrors(context);
         }
 #endif
 
