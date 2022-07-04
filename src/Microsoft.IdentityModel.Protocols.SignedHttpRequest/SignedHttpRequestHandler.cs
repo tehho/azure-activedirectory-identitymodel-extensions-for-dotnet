@@ -1256,26 +1256,28 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest
             var sanitizedQueryParams = new Dictionary<string, string>(StringComparer.Ordinal);
             var repeatedQueryParams = new List<string>();
 
-            var queryString = httpRequestUri.Query.TrimStart('?');
-            if (string.IsNullOrEmpty(queryString))
+            var queryString = new StringSegment(httpRequestUri.Query);
+            queryString.TrimStart('?');
+            if (queryString.IsEmpty)
                 return sanitizedQueryParams;
 
             var queryParamKeyValuePairs = queryString.Split('&');
             foreach (var queryParamValuePair in queryParamKeyValuePairs)
             {
                 var queryParamKeyValuePairArray = queryParamValuePair.Split('=');
-                if (queryParamKeyValuePairArray.Length == 2)
+                if (queryParamKeyValuePairArray.Count == 2)
                 {
                     var queryParamName = queryParamKeyValuePairArray[0];
                     var queryParamValue = queryParamKeyValuePairArray[1];
-                    if (!string.IsNullOrEmpty(queryParamName))
+                    if (!queryParamName.IsEmpty)
                     {
                         // if sanitizedQueryParams already contains the query parameter name it means that the queryParamName is repeated.
                         // in that case queryParamName should not be added, and the existing entry in sanitizedQueryParams should be removed.
-                        if (sanitizedQueryParams.ContainsKey(queryParamName))
-                            repeatedQueryParams.Add(queryParamName);
-                        else if (!string.IsNullOrEmpty(queryParamValue))
-                            sanitizedQueryParams.Add(queryParamName, queryParamValue);
+                        var queryParamNameString = queryParamName.ToString();
+                        if (sanitizedQueryParams.ContainsKey(queryParamNameString))
+                            repeatedQueryParams.Add(queryParamNameString);
+                        else if (!queryParamValue.IsEmpty)
+                            sanitizedQueryParams.Add(queryParamNameString, queryParamValue.ToString());
                     }
                 }
             }
