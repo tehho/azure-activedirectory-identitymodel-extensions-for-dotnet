@@ -300,66 +300,33 @@ namespace Microsoft.IdentityModel.Tokens
             if (mod == 1)
                 throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, str)));
 
-            bool needReplace = false;
-            int decodedLength = str.Length + (4 - mod) % 4;
-
-            for (int i = 0; i < str.Length; i++)
-            {
-                if (str[i] == base64UrlCharacter62 || str[i] == base64UrlCharacter63)
-                {
-                    needReplace = true;
-                    break;
-                }
-            }
-
-            if (needReplace)
-            {
-                string decodedString = new(char.MinValue, decodedLength);
-                fixed (char* dest = decodedString)
-                {
-                    int i = 0;
-                    for (; i < str.Length; i++)
-                    {
-                        if (str[i] == base64UrlCharacter62)
-                            dest[i] = base64Character62;
-                        else if (str[i] == base64UrlCharacter63)
-                            dest[i] = base64Character63;
-                        else
-                            dest[i] = str[i];
-                    }
-
-                    for (; i < decodedLength; i++)
-                        dest[i] = base64PadCharacter;
-                }
-
-                return Convert.FromBase64String(decodedString);
-            }
+            int decodedLength = str.Length + (4 - mod) % 4; // decodedLength == str.Length, no padding needed, multiple of 4
+            bool needPadding = decodedLength != str.Length;
+            char[] decodedString;
+            if (!needPadding) // no padding needed
+                decodedString = str;
             else
+                decodedString = new char[decodedLength];
+
+            // replace base64UrlCharacter62 and base64UrlCharacter63 (in-line replacement or copy and replace at the same time)
+            int index;
+            fixed (char* src = str)
+            fixed (char* dest = decodedString)
             {
-                if (decodedLength == str.Length)
+                for (index = 0; index < str.Length; index++)
                 {
-                    return Convert.FromBase64CharArray(str, 0, str.Length);
+                    if (src[index] == base64UrlCharacter62)
+                        dest[index] = base64Character62;
+                    else if (src[index] == base64UrlCharacter63)
+                        dest[index] = base64Character63;
+                    else
+                        dest[index] = src[index];
                 }
-                else
-                {
-                    string decodedString = new(char.MinValue, decodedLength);
-                    fixed (char* src = str)
-                    fixed (char* dest = decodedString)
-                    {
-#if NET45
-                        for (int index = 0; index < str.Length; index++)
-                            dest[index] = src[index];
-#else
-                        Buffer.MemoryCopy(src, dest, str.Length * 2, str.Length * 2);
-#endif
 
-                        dest[str.Length] = base64PadCharacter;
-                        if (str.Length + 2 == decodedLength)
-                            dest[str.Length + 1] = base64PadCharacter;
-                    }
+                for (; index < decodedLength; index++)
+                    dest[index] = base64PadCharacter;
 
-                    return Convert.FromBase64String(decodedString);
-                }
+                return Convert.FromBase64CharArray(decodedString, 0, decodedLength);
             }
         }
 
