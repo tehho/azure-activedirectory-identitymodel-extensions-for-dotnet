@@ -36,6 +36,14 @@ namespace Microsoft.IdentityModel.Tokens
                 Trim();
         }
 
+        public char this[int index] => _source[_start + index];
+
+        public string Source => _source;
+
+        public int StartIndex => _start;
+
+        public int EndIndex => _end;
+
         /// <summary>
         /// Trim all leading and trailing white spaces.
         /// </summary>

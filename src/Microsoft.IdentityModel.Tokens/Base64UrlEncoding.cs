@@ -102,7 +102,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <remarks>
         /// The buffer for the decode operation uses shared memory pool to avoid allocations.
         /// The length of the rented array of bytes may be larger than the decoded bytes, therefore the action needs to know the actual length to use.
-        /// The result of <see cref="ValidateAndGetOutputSize"/> is passed to the action.
+        /// The result of <see cref="ValidateAndGetOutputSize(string, int, int)"/> is passed to the action.
         /// </remarks>
         public static T Decode<T, TX>(string input, int offset, int length, TX argx, Func<byte[], int, TX, T> action)
         {
@@ -132,7 +132,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <remarks>
         /// The buffer for the decode operation uses shared memory pool to avoid allocations.
         /// The length of the rented array of bytes may be larger than the decoded bytes, therefore the action needs to know the actual length to use.
-        /// The result of <see cref="ValidateAndGetOutputSize"/> is passed to the action.
+        /// The result of <see cref="ValidateAndGetOutputSize(string, int, int)"/> is passed to the action.
         /// </remarks>
         public static T Decode<T>(string input, int offset, int length, Func<byte[], int, T> action)
         {
@@ -143,6 +143,23 @@ namespace Microsoft.IdentityModel.Tokens
             try
             {
                 Decode(input, offset, length, output);
+                return action(output, outputsize);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(output);
+            }
+        }
+
+        public static T Decode<T>(StringSegment input, Func<byte[], int, T> action)
+        {
+            _ = action ?? throw new ArgumentNullException(nameof(action));
+
+            int outputsize = ValidateAndGetOutputSize(input);
+            byte[] output = ArrayPool<byte>.Shared.Rent(outputsize);
+            try
+            {
+                Decode(input, 0, input.Length, output);
                 return action(output, outputsize);
             }
             finally
@@ -169,7 +186,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <remarks>
         /// The buffer for the decode operation uses shared memory pool to avoid allocations.
         /// The length of the rented array of bytes may be larger than the decoded bytes, therefore the action needs to know the actual length to use.
-        /// The result of <see cref="ValidateAndGetOutputSize"/> is passed to the action.
+        /// The result of <see cref="ValidateAndGetOutputSize(string, int, int)"/> is passed to the action.
         /// </remarks>
         public static T Decode<T, TX, TY, TZ>(
             string input,
@@ -210,11 +227,21 @@ namespace Microsoft.IdentityModel.Tokens
         /// </remarks>
         private static void Decode(string input, int offset, int length, byte[] output)
         {
+            Decode(i => input[i], offset, length, output, () => input);
+        }
+
+        private static void Decode(StringSegment input, int offset, int length, byte[] output)
+        {
+            Decode(i => input[i], offset, length, output, input.ToString);
+        }
+
+        private static void Decode(Func<int, char> charIndexer, int offset, int length, byte[] output, Func<string> getInputString)
+        {
             int outputpos = 0;
             uint curblock = 0x000000FFu;
             for (int i = offset; i < (offset + length); i++)
             {
-                uint cur = input[i];
+                uint cur = charIndexer(i);
                 if (cur >= IntA && cur <= IntZ)
                 {
                     cur -= IntA;
@@ -245,7 +272,7 @@ namespace Microsoft.IdentityModel.Tokens
                         LogHelper.FormatInvariant(
                             LogMessages.IDX10820,
                             LogHelper.MarkAsNonPII(cur),
-                            input)));
+                            getInputString())));
                 }
 
                 curblock = (curblock << 6) | cur;
@@ -279,7 +306,7 @@ namespace Microsoft.IdentityModel.Tokens
                 else
                 {
                     throw LogHelper.LogExceptionMessage(new ArgumentException(
-                        LogHelper.FormatInvariant(LogMessages.IDX10821, input)));
+                        LogHelper.FormatInvariant(LogMessages.IDX10821, getInputString())));
                 }
             }
         }
@@ -400,6 +427,36 @@ namespace Microsoft.IdentityModel.Tokens
             }
 
             int effectiveLength = 1 + (lastCharPosition - offset);
+            int outputsize = effectiveLength % 4;
+            if (outputsize > 0)
+                outputsize--;
+
+            outputsize += (effectiveLength / 4) * 3;
+            return outputsize;
+        }
+
+        private static int ValidateAndGetOutputSize(StringSegment inputString)
+        {
+            if (inputString.IsEmpty)
+                return 0;
+
+            var length = inputString.Length;
+
+            if (length % 4 == 1)
+                throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, inputString)));
+
+            inputString.TrimEnd('=');
+            //int lastCharPosition = offset + length - 1;
+
+            //// Compute useful length (i.e. ignore padding characters)
+            //if (inputString[inputString.Length] == '=')
+            //{
+            //    lastCharPosition--;
+            //    if (inputString[lastCharPosition] == '=')
+            //        lastCharPosition--;
+            //}
+
+            int effectiveLength = inputString.Length;
             int outputsize = effectiveLength % 4;
             if (outputsize > 0)
                 outputsize--;

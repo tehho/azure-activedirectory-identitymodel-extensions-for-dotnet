@@ -363,11 +363,46 @@ namespace Microsoft.IdentityModel.Tokens
             }
         }
 
+        internal static unsafe byte[] UnsafeDecode(StringSegment str)
+        {
+            int strLength = str.Length;
+            int mod = strLength % 4;
+            if (mod == 1)
+                throw LogHelper.LogExceptionMessage(new FormatException(LogHelper.FormatInvariant(LogMessages.IDX10400, str)));
+
+            int decodedLength = strLength + (4 - mod) % 4; // decodedLength == str.Length, no padding needed, multiple of 4
+            //string decodedString = new(char.MinValue, decodedLength);
+            char[] decodedString = new char[decodedLength];
+
+            // replace base64UrlCharacter62 and base64UrlCharacter63
+            int index;
+            fixed (char* start = str.Source)
+            fixed (char* dest = decodedString)
+            {
+                var src = start + str.StartIndex; // starting point
+
+                for (index = 0; index < strLength; index++)
+                {
+                    if (src[index] == base64UrlCharacter62)
+                        dest[index] = base64Character62;
+                    else if (src[index] == base64UrlCharacter63)
+                        dest[index] = base64Character63;
+                    else
+                        dest[index] = src[index];
+                }
+
+                for (; index < decodedLength; index++)
+                    dest[index] = base64PadCharacter;
+
+                return Convert.FromBase64CharArray(decodedString, 0, decodedLength);
+            }
+        }
+
         /// <summary>
-        /// Decodes the string from Base64UrlEncoded to UTF8.
-        /// </summary>
-        /// <param name="arg">string to decode.</param>
-        /// <returns>UTF8 string.</returns>
+                 /// Decodes the string from Base64UrlEncoded to UTF8.
+                 /// </summary>
+                 /// <param name="arg">string to decode.</param>
+                 /// <returns>UTF8 string.</returns>
         public static string Decode(string arg)
         {
             return Encoding.UTF8.GetString(DecodeBytes(arg));
