@@ -17,14 +17,13 @@
     <CompatibleReference Include="Microsoft.IdentityModel.Abstractions" FullAnalyze="true" />
     <CompatibleReference Include="Microsoft.IdentityModel.Logging" FullAnalyze="true" />
     <CompatibleReference Include="Microsoft.IdentityModel.JsonWebTokens" />
-    
     <CompatibleReference Update="@(CompatibleReference)" Path="..\..\src\%(Identity)\%(Identity).csproj" />
   </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="@(CompatibleReference->'%(Path)')" />
 
-    <TrimmerRootAssembly Include="@(CompatibleReference->WithMetadataValue('FullAnalyze','true'))"/>
+    <TrimmerRootAssembly Include="@(CompatibleReference-&gt;WithMetadataValue('FullAnalyze','true'))" />
   </ItemGroup>
 
 </Project>

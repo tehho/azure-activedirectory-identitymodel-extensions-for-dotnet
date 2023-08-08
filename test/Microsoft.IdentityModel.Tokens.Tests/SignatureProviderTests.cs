@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.TestUtils;
 using Xunit;
 
@@ -695,6 +696,26 @@ namespace Microsoft.IdentityModel.Tokens.Tests
         }
 
         [Fact]
+        public void SymmetricKeySizeExtensibility()
+        {
+            // Create a SymmetricSecurityKey with a key size of 128 bits.
+            // Which normally would not be allowed for HMAC256.
+            // Use extensibility to create a SymmetricSignatureProvider that will validate using a key size of 128 bits with HmacSha256.
+            var key = new SymmetricSecurityKey(new byte[16]);
+            key.CryptoProviderFactory = new CustomKeySizeCryptoProviderFactory();
+
+            try
+            {
+                var signatureProvider = new SymmetricSignatureProvider(key, ALG.HmacSha256Signature);
+                var signature = signatureProvider.Sign(new byte[16]);
+            }
+            catch (Exception ex)
+            {
+                throw new TestException(string.Format("SymmetricKeySizeExtensibility: Creating SymmetricSignatureProvider with a key size of 128 bits threw: {0}", ex));
+            }
+        }
+
+        [Fact]
         public void SymmetricSignatureProvider_SupportedAlgorithms()
         {
             var errors = new List<string>();
@@ -1069,6 +1090,62 @@ namespace Microsoft.IdentityModel.Tokens.Tests
             });
 
             return theoryData;
+        }
+    }
+
+    public class CustomKeySizeCryptoProviderFactory : CryptoProviderFactory
+    {
+        public override KeyedHashAlgorithm CreateKeyedHashAlgorithm(byte[] keyBytes, string algorithm)
+        {
+            switch (algorithm)
+            {
+                case SecurityAlgorithms.HmacSha256Signature:
+                case SecurityAlgorithms.HmacSha256:
+                {
+                    if (keyBytes.Length < 16)
+                        throw LogHelper.LogExceptionMessage(
+                            new ArgumentOutOfRangeException(
+                            nameof(keyBytes),
+                            LogHelper.FormatInvariant(LogMessages.IDX10720,
+                            LogHelper.MarkAsNonPII(algorithm),
+                            LogHelper.MarkAsNonPII(128),
+                            LogHelper.MarkAsNonPII(keyBytes.Length * 8))));
+
+                    return new HMACSHA256(keyBytes);
+                }
+
+                case SecurityAlgorithms.HmacSha384Signature:
+                case SecurityAlgorithms.HmacSha384:
+                {
+                        if (keyBytes.Length < 48)
+                            throw LogHelper.LogExceptionMessage(
+                                new ArgumentOutOfRangeException(
+                                nameof(keyBytes),
+                                LogHelper.FormatInvariant(LogMessages.IDX10720,
+                                LogHelper.MarkAsNonPII(algorithm),
+                                LogHelper.MarkAsNonPII(384),
+                                LogHelper.MarkAsNonPII(keyBytes.Length * 8))));
+
+                        return new HMACSHA384(keyBytes);
+                }
+
+                case SecurityAlgorithms.HmacSha512Signature:
+                case SecurityAlgorithms.HmacSha512:
+                {
+                        if (keyBytes.Length < 64)
+                            throw LogHelper.LogExceptionMessage(
+                                new ArgumentOutOfRangeException(
+                                nameof(keyBytes),
+                                LogHelper.FormatInvariant(LogMessages.IDX10720,
+                                LogHelper.MarkAsNonPII(algorithm),
+                                LogHelper.MarkAsNonPII(512),
+                                LogHelper.MarkAsNonPII(keyBytes.Length * 8))));
+
+                        return new HMACSHA512(keyBytes);
+                }
+            }
+
+            return base.CreateKeyedHashAlgorithm(keyBytes, algorithm);
         }
     }
 
