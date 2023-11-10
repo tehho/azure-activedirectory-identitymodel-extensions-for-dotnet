@@ -378,7 +378,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
                 IsSigned = !(Dot2 + 1 == encodedJson.Length);
                 try
                 {
-                    Header = CreateClaimSet(encodedJson, 0, Dot1, CreateHeaderClaimSet);
+                    Header = CreateHClaimSet(encodedJson, 0, Dot1);
                 }
                 catch (Exception ex)
                 {
@@ -390,7 +390,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens
 
                 try
                 {
-                    Payload = CreateClaimSet(encodedJson, Dot1 + 1, Dot2 - Dot1 - 1, CreatePayloadClaimSet);
+                    Payload = CreatePClaimSet(encodedJson, Dot1 + 1, Dot2 - Dot1 - 1);
                 }
                 catch (Exception ex)
                 {
@@ -513,9 +513,14 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             EncodedToken = encodedJson;
         }
 
-        internal static JsonClaimSet CreateClaimSet(string rawString, int startIndex, int length, Func<byte[], int, JsonClaimSet> action)
+        internal static JsonClaimSet CreateHClaimSet(string rawString, int startIndex, int length)
         {
-            return Base64UrlEncoding.Decode(rawString, startIndex, length, action);
+            return Base64UrlEncoding.Decode(rawString, startIndex, length, CreateHeaderClaimSet);
+        }
+
+        internal static JsonClaimSet CreatePClaimSet(string rawString, int startIndex, int length)
+        {
+            return Base64UrlEncoding.Decode(rawString, startIndex, length, CreatePayloadClaimSet);
         }
 
         /// <summary>
