@@ -42,7 +42,7 @@ namespace Microsoft.IdentityModel.JsonWebTokens.Tests
             try
             {
                 JsonWebToken jwt = new JsonWebToken("{}", $@"{{""true"":true}}");
-                JsonClaimSet claimSet = jwt.CreatePayloadClaimSet(theoryData.Utf8Bytes, theoryData.Utf8Bytes.Length);
+                JsonClaimSet claimSet = JsonWebToken.CreatePayloadClaimSet(theoryData.Utf8Bytes, theoryData.Utf8Bytes.Length);
                 theoryData.ExpectedException.ProcessNoException(context);
             }
             catch (JsonException ex)
